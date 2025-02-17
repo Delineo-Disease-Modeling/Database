@@ -1,0 +1,38 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ConvenienceZone {
+  id            String   @id @default(uuid())
+  latitude      Float
+  longitude     Float
+  cbg_list      String[] // JSON-like array of CBG identifiers
+  size          Int
+  date_of_creation DateTime @default(now())
+}
+
+model MovementPattern {
+  id            String   @id @default(uuid())
+  dson_pattern  String   // JSON-like pattern as string
+  start_datetime DateTime
+}
+
+model POI {
+  id          String  @id @default(uuid())
+  latitude    Float
+  longitude   Float
+  address     String
+  cbg         String
+  categories  String[]
+}
