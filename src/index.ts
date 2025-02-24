@@ -1,9 +1,11 @@
 import express from 'express';
+import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 
 const app = express();
 const prisma = new PrismaClient();
 
+app.use(cors());
 app.use(express.json());
 
 app.get('/', async (req, res) => {
@@ -38,6 +40,6 @@ app.post('/convenience-zones', async (req, res) => {
   });
 });
 
-const port = 3000;
+const port = 1890;
 app.listen(port);
 console.log(`Server is listening on port ${port}`);
