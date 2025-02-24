@@ -8,7 +8,6 @@ app.use(express.json());
 
 app.get('/', async (req, res) => {
   res.json({
-    success: true,
     message: 'Hello, World!'
   });
 });
@@ -16,17 +15,17 @@ app.get('/', async (req, res) => {
 app.get('/convenience-zones', async (req, res) => {
   const zones = await prisma.convenienceZone.findMany();
   res.json({
-    success: true,
     data: zones
   });
 });
 
 app.post('/convenience-zones', async (req, res) => {
-  const { name, latitude, longitude, cbg_list, size } = req.body;
+  const { name, label, latitude, longitude, cbg_list, size } = req.body;
 
   const zone = await prisma.convenienceZone.create({
     data: {
       name,
+      label,
       latitude,
       longitude,
       cbg_list,
@@ -35,7 +34,6 @@ app.post('/convenience-zones', async (req, res) => {
   });
 
   res.json({
-    success: true,
     data: zone
   });
 });

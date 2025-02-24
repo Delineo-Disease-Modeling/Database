@@ -8,19 +8,31 @@ datasource db {
 }
 
 model ConvenienceZone {
-  id            String   @id @default(uuid())
-  name          String
-  latitude      Float
-  longitude     Float
-  cbg_list      String[] // JSON-like array of CBG identifiers
-  size          Int
-  date_of_creation DateTime @default(now())
+  id                Int   @id @default(autoincrement())
+  label             String
+  name              String
+  latitude          Float
+  longitude         Float
+  cbg_list          String[]        // JSON-like array of CBG identifiers
+  size              Int
+  created_at        DateTime @default(now())
+  papdata           PaPData?
+  patterns          MovementPattern?
 }
 
 model MovementPattern {
-  id            String   @id @default(uuid())
-  patterns      String
-  start_datetime DateTime
+  id                Int   @id @default(autoincrement())
+  patterns          String
+  created_at        DateTime @default(now())
+  start_date        DateTime
+  czone_id          Int @unique
+  czone             ConvenienceZone @relation(references: [id], fields: [czone_id], onDelete: Cascade)          
+}
+
+model PaPData {
+  id      Int @id @default(autoincrement())
+  czone_id  Int @unique
+  czone     ConvenienceZone @relation(references: [id], fields: [czone_id], onDelete: Cascade)
 }
 
 model POI {
