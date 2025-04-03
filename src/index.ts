@@ -4,15 +4,15 @@ import { PrismaClient } from '@prisma/client';
 import { GOOGLE_API_KEY } from './env.js';
 
 interface GeocodeComponent {
-  long_name: string; 
+  long_name: string;
   types: string[];
 }
 
 interface Geometry {
-    location: {
+  location: {
     lat: number;
     lng: number;
-};
+  };
 }
 
 interface GeocodeResult {
@@ -68,9 +68,7 @@ app.post('/lookup-zip', async (req, res) => {
 
   if (!zipCodeComponent) {
     // If postal code isn't found, attempt reverse geocoding.
-    const resultWithGeometry = json.results.find(
-      (result) => result.geometry
-    );
+    const resultWithGeometry = json.results.find((result) => result.geometry);
     if (!resultWithGeometry || !resultWithGeometry.geometry) {
       res.status(400).json({ error: 'No geometry found for reverse lookup' });
       return;
@@ -85,7 +83,10 @@ app.post('/lookup-zip', async (req, res) => {
     );
 
     const loc_json = (await loc_resp.json()) as GeocodeResponse;
-    const res_json: { zip_code: string; city: string } = { zip_code: '', city: '' };
+    const res_json: { zip_code: string; city: string } = {
+      zip_code: '',
+      city: ''
+    };
 
     for (const result of loc_json.results) {
       if (result.address_components) {
@@ -97,17 +98,18 @@ app.post('/lookup-zip', async (req, res) => {
             res_json.city = comp.long_name;
           }
         }
+      }
     }
-  }
+
     res.json(res_json);
   } else {
     // If postal code is found, look for the city.
     const cityComponent = components.find((component) =>
-    component.types.includes('locality')
+      component.types.includes('locality')
     );
     res.json({
       zip_code: zipCodeComponent.long_name,
-    city: cityComponent ? cityComponent.long_name : ''
+      city: cityComponent ? cityComponent.long_name : ''
     });
   }
 });
