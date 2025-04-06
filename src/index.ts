@@ -29,7 +29,7 @@ const app = express();
 const prisma = new PrismaClient();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 app.get('/', async (req, res) => {
   res.json({
@@ -141,14 +141,12 @@ app.post('/convenience-zones', async (req, res) => {
 });
 
 app.post('/patterns', async (req, res) => {
-  const { cz_id, patterns, papdata } = req.body;
-
-  const czone_id = +cz_id;
+  const { czone_id, patterns, papdata } = req.body;
 
   const papdata_obj = await prisma.paPData.create({
     data: {
       papdata: papdata,
-      czone_id: czone_id
+      czone_id: +czone_id
     }
   });
 
@@ -156,7 +154,7 @@ app.post('/patterns', async (req, res) => {
     data: {
       patterns: patterns,
       start_date: new Date(),
-      czone_id: czone_id
+      czone_id: +czone_id
     }
   });
 
