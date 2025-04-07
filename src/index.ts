@@ -145,14 +145,14 @@ app.post('/patterns', async (req, res) => {
 
   const papdata_obj = await prisma.paPData.create({
     data: {
-      papdata: papdata,
+      papdata: JSON.stringify(papdata),
       czone_id: +czone_id
     }
   });
 
   const patterns_obj = await prisma.movementPattern.create({
     data: {
-      patterns: patterns,
+      patterns: JSON.stringify(patterns),
       start_date: new Date(),
       czone_id: +czone_id
     }
