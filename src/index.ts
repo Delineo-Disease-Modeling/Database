@@ -143,6 +143,14 @@ app.post('/convenience-zones', async (req, res) => {
 app.post('/patterns', async (req, res) => {
   const { czone_id, patterns, papdata } = req.body;
 
+  if (!czone_id || !patterns || !papdata) {
+    res.status(400).json({
+      message: 'Please send a full JSON body'
+    });
+
+    return;
+  }
+
   const papdata_obj = await prisma.paPData.create({
     data: {
       papdata: JSON.stringify(papdata),
@@ -171,6 +179,13 @@ app.post('/patterns', async (req, res) => {
 });
 
 app.get('/patterns/:czone_id', async (req, res) => {
+  if (Number.isInteger(req.params.czone_id)) {
+    res.status(400).json({
+      message: 'Please specify a convenience zone ID #'
+    });
+
+    return;
+  }
   const czone_id = +req.params.czone_id;
 
   const papdata_obj = await prisma.paPData.findUnique({
