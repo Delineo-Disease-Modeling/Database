@@ -179,7 +179,7 @@ app.post('/patterns', async (req, res) => {
 });
 
 app.get('/patterns/:czone_id', async (req, res) => {
-  if (Number.isInteger(req.params.czone_id)) {
+  if (!req.params.czone_id || !Number.isInteger(req.params.czone_id)) {
     res.status(400).json({
       message: 'Please specify a convenience zone ID #'
     });
