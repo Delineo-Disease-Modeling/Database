@@ -178,8 +178,16 @@ app.post('/patterns', async (req, res) => {
   });
 });
 
+function isStringInt(str: any) {
+  if (typeof str !== 'string') {
+    return false;
+  }
+  const num = Number(str);
+  return Number.isInteger(num) && !isNaN(num);
+}
+
 app.get('/patterns/:czone_id', async (req, res) => {
-  if (!req.params.czone_id || !Number.isInteger(req.params.czone_id)) {
+  if (!isStringInt(req.params.czone_id)) {
     res.status(400).json({
       message: 'Please specify a convenience zone ID #'
     });
