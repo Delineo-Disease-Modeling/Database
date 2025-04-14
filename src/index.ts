@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { GOOGLE_API_KEY } from './env.js';
+import { z } from 'zod';
 
 interface GeocodeComponent {
   long_name: string;
@@ -29,7 +30,7 @@ const app = express();
 const prisma = new PrismaClient();
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '20mb' }));
 
 app.get('/', async (req, res) => {
   res.json({
@@ -37,9 +38,22 @@ app.get('/', async (req, res) => {
   });
 });
 
+const postLookupZipSchema = z.object({
+  location: z.string().nonempty()
+});
+
 app.post('/lookup-zip', async (req, res) => {
-  // Use type assertion to ensure req.body has a location string.
-  const { location } = req.body as { location: string };
+  const parse = postLookupZipSchema.safeParse(req.body);
+
+  if (!parse.success) {
+    res.status(400).json({
+      message: 'Please specify a location'
+    });
+
+    return;
+  }
+
+  const { location } = parse.data;
 
   const api_uri = 'https://maps.googleapis.com/maps/api/geocode/json';
 
@@ -121,8 +135,27 @@ app.get('/convenience-zones', async (req, res) => {
   });
 });
 
+const postConvZonesSchema = z.object({
+  name: z.string().nonempty(),
+  label: z.string().nonempty(),
+  latitude: z.number(),
+  longitude: z.number(),
+  cbg_list: z.array(z.string()),
+  size: z.number().nonnegative()
+});
+
 app.post('/convenience-zones', async (req, res) => {
-  const { name, label, latitude, longitude, cbg_list, size } = req.body;
+  const parse = postConvZonesSchema.safeParse(req.body);
+
+  if (!parse.success) {
+    res.status(400).json({
+      message: 'Invalid schema'
+    });
+
+    return;
+  }
+
+  const { name, label, latitude, longitude, cbg_list, size } = parse.data;
 
   const zone = await prisma.convenienceZone.create({
     data: {
@@ -140,10 +173,16 @@ app.post('/convenience-zones', async (req, res) => {
   });
 });
 
-app.post('/patterns', async (req, res) => {
-  const { czone_id, patterns, papdata } = req.body;
+const postPatternsSchema = z.object({
+  czone_id: z.number().nonnegative(),
+  papdata: z.object({}).passthrough(),
+  patterns: z.object({}).passthrough()
+});
 
-  if (!czone_id || !patterns || !papdata) {
+app.post('/patterns', async (req, res) => {
+  const parse = postPatternsSchema.safeParse(req.body);
+
+  if (!parse.success) {
     res.status(400).json({
       message: 'Please send a full JSON body'
     });
@@ -151,10 +190,12 @@ app.post('/patterns', async (req, res) => {
     return;
   }
 
+  const { czone_id, patterns, papdata } = parse.data;
+
   const papdata_obj = await prisma.paPData.create({
     data: {
       papdata: JSON.stringify(papdata),
-      czone_id: +czone_id
+      czone_id: czone_id
     }
   });
 
@@ -162,7 +203,7 @@ app.post('/patterns', async (req, res) => {
     data: {
       patterns: JSON.stringify(patterns),
       start_date: new Date(),
-      czone_id: +czone_id
+      czone_id: czone_id
     }
   });
 
@@ -178,23 +219,22 @@ app.post('/patterns', async (req, res) => {
   });
 });
 
-function isStringInt(str: any) {
-  if (typeof str !== 'string') {
-    return false;
-  }
-  const num = Number(str);
-  return Number.isInteger(num) && !isNaN(num);
-}
+const getPatternsSchema = z.object({
+  czone_id: z.number().nonnegative()
+});
 
 app.get('/patterns/:czone_id', async (req, res) => {
-  if (!isStringInt(req.params.czone_id)) {
+  const parse = getPatternsSchema.safeParse(req.params);
+
+  if (!parse.success) {
     res.status(400).json({
       message: 'Please specify a convenience zone ID #'
     });
 
     return;
   }
-  const czone_id = +req.params.czone_id;
+
+  const czone_id = parse.data.czone_id;
 
   const papdata_obj = await prisma.paPData.findUnique({
     where: {
