@@ -220,7 +220,7 @@ app.post('/patterns', async (req, res) => {
 });
 
 const getPatternsSchema = z.object({
-  czone_id: z.number().nonnegative()
+  czone_id: z.coerce.number().nonnegative()
 });
 
 app.get('/patterns/:czone_id', async (req, res) => {
