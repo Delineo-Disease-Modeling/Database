@@ -202,7 +202,6 @@ app.post('/patterns', async (req, res) => {
   const patterns_obj = await prisma.movementPattern.create({
     data: {
       patterns: JSON.stringify(patterns),
-      start_date: new Date(),
       czone_id: czone_id
     }
   });
