@@ -129,9 +129,21 @@ app.post('/lookup-zip', async (req, res) => {
 });
 
 app.get('/convenience-zones', async (req, res) => {
-  const zones = await prisma.convenienceZone.findMany();
+  const zones = await prisma.convenienceZone.findMany({
+    include: {
+      papdata: {
+        select: {
+          id: true
+        }
+      }
+    }
+  });
   res.json({
-    data: zones
+    data: zones.map((zone) => ({
+      ...zone,
+      papdata: undefined,
+      ready: !!zone.papdata
+    }))
   });
 });
 
