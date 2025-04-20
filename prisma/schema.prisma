@@ -9,12 +9,12 @@ datasource db {
 
 model ConvenienceZone {
   id                Int   @id @default(autoincrement())
-  label             String
   name              String
   latitude          Float
   longitude         Float
   cbg_list          String[]        // JSON-like array of CBG identifiers
   size              Int
+  start_date        DateTime
   created_at        DateTime @default(now())
   papdata           PaPData?
   patterns          MovementPattern?
@@ -24,7 +24,6 @@ model MovementPattern {
   id                Int   @id @default(autoincrement())
   patterns          String
   created_at        DateTime @default(now())
-  start_date        DateTime
   czone_id          Int @unique
   czone             ConvenienceZone @relation(references: [id], fields: [czone_id], onDelete: Cascade)          
 }

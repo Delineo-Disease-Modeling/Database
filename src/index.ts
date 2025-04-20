@@ -137,10 +137,10 @@ app.get('/convenience-zones', async (req, res) => {
 
 const postConvZonesSchema = z.object({
   name: z.string().nonempty(),
-  label: z.string().nonempty(),
   latitude: z.number(),
   longitude: z.number(),
   cbg_list: z.array(z.string()),
+  start_date: z.string().datetime(),
   size: z.number().nonnegative()
 });
 
@@ -155,15 +155,15 @@ app.post('/convenience-zones', async (req, res) => {
     return;
   }
 
-  const { name, label, latitude, longitude, cbg_list, size } = parse.data;
+  const { name, latitude, longitude, cbg_list, start_date, size } = parse.data;
 
   const zone = await prisma.convenienceZone.create({
     data: {
       name,
-      label,
       latitude,
       longitude,
       cbg_list,
+      start_date,
       size
     }
   });
