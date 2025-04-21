@@ -29,7 +29,16 @@ interface GeocodeResponse {
 const app = express();
 const prisma = new PrismaClient();
 
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    exposedHeaders: ['Set-Cookie'],
+    credentials: true
+  })
+);
+
 app.use(express.json({ limit: '20mb' }));
 
 app.get('/', async (req, res) => {
