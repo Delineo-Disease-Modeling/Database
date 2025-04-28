@@ -39,7 +39,7 @@ app.use(
   })
 );
 
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '500mb' }));
 
 app.get('/', async (req, res) => {
   res.json({
