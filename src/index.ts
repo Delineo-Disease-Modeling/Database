@@ -290,7 +290,7 @@ const postSimDataSchema = z.object({
 });
 
 app.post('/simdata', async (req, res) => {
-  const parse = postSimDataSchema.safeParse(req.params);
+  const parse = postSimDataSchema.safeParse(req.body);
 
   if (!parse.success) {
     res.status(400).json({
