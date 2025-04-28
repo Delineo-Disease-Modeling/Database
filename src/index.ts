@@ -284,6 +284,71 @@ app.get('/patterns/:czone_id', async (req, res) => {
   });
 });
 
+const postSimDataSchema = z.object({
+  czone_id: z.coerce.number().nonnegative(),
+  simdata: z.string().nonempty()
+});
+
+app.post('/simdata/:czone_id', async (req, res) => {
+  const parse = postSimDataSchema.safeParse(req.params);
+
+  if (!parse.success) {
+    res.status(400).json({
+      message: 'Please specify a convenience zone ID # and associated simdata'
+    });
+
+    return;
+  }
+
+  const czone_id = parse.data.czone_id;
+
+  await prisma.simData.create({
+    data: {
+      czone_id: czone_id,
+      simdata: parse.data.simdata
+    }
+  });
+
+  res.json({
+    message: `Successfully added simulator cache data to zone #${czone_id}`
+  });
+});
+
+const getSimDataSchema = z.object({
+  czone_id: z.coerce.number().nonnegative(),
+  simdata: z.string().nonempty()
+});
+
+app.get('/simdata/:czone_id', async (req, res) => {
+  const parse = getSimDataSchema.safeParse(req.params);
+
+  if (!parse.success) {
+    res.status(400).json({
+      message: 'Please specify a convenience zone ID #'
+    });
+
+    return;
+  }
+
+  const czone_id = parse.data.czone_id;
+
+  const simdata = await prisma.simData.findUnique({
+    where: { czone_id: czone_id }
+  });
+
+  if (!simdata) {
+    res.status(404).json({
+      message: 'Could not find associated simdata'
+    });
+
+    return;
+  }
+
+  res.json({
+    data: simdata.simdata
+  });
+});
+
 const port = 1890;
 app.listen(port, () => {
   console.log(`Server is listening on port ${port}`);

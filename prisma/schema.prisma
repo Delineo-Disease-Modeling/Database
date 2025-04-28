@@ -18,6 +18,7 @@ model ConvenienceZone {
   created_at        DateTime @default(now())
   papdata           PaPData?
   patterns          MovementPattern?
+  simdata           SimData?
 }
 
 model MovementPattern {
@@ -31,6 +32,13 @@ model MovementPattern {
 model PaPData {
   id      Int @id @default(autoincrement())
   papdata   String
+  czone_id  Int @unique
+  czone     ConvenienceZone @relation(references: [id], fields: [czone_id], onDelete: Cascade)
+}
+
+model SimData {
+  id Int @id @default(autoincrement())
+  simdata   String
   czone_id  Int @unique
   czone     ConvenienceZone @relation(references: [id], fields: [czone_id], onDelete: Cascade)
 }
