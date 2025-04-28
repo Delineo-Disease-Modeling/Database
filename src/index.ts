@@ -289,7 +289,7 @@ const postSimDataSchema = z.object({
   simdata: z.string().nonempty()
 });
 
-app.post('/simdata/:czone_id', async (req, res) => {
+app.post('/simdata', async (req, res) => {
   const parse = postSimDataSchema.safeParse(req.params);
 
   if (!parse.success) {
