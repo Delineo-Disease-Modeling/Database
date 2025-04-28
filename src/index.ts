@@ -315,8 +315,7 @@ app.post('/simdata/:czone_id', async (req, res) => {
 });
 
 const getSimDataSchema = z.object({
-  czone_id: z.coerce.number().nonnegative(),
-  simdata: z.string().nonempty()
+  czone_id: z.coerce.number().nonnegative()
 });
 
 app.get('/simdata/:czone_id', async (req, res) => {
