@@ -302,8 +302,14 @@ app.post('/simdata', async (req, res) => {
 
   const czone_id = parse.data.czone_id;
 
-  await prisma.simData.create({
-    data: {
+  await prisma.simData.upsert({
+    where: {
+      czone_id: czone_id
+    },
+    update: {
+      simdata: parse.data.simdata
+    },
+    create: {
       czone_id: czone_id,
       simdata: parse.data.simdata
     }
