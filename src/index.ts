@@ -194,6 +194,38 @@ app.post('/convenience-zones', async (req, res) => {
   });
 });
 
+const deleteConvZonesSchema = z.object({
+  czone_id: z.number().int().nonnegative()
+});
+
+app.delete('/convenience-zones/:czone_id', async (req, res) => {
+  const parse = deleteConvZonesSchema.safeParse(req.params);
+
+  if (!parse.success) {
+    res.status(400).json({
+      message: 'Please specify a czone_id'
+    });
+
+    return;
+  }
+
+  try {
+    const zone = await prisma.convenienceZone.delete({
+      where: {
+        id: parse.data.czone_id
+      }
+    });
+
+    res.json({
+      data: zone
+    });
+  } catch (error) {
+    res.status(404).json({
+      message: error
+    });
+  }
+});
+
 const postPatternsSchema = z.object({
   czone_id: z.number().nonnegative(),
   papdata: z.object({}).passthrough(),
