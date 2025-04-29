@@ -195,7 +195,7 @@ app.post('/convenience-zones', async (req, res) => {
 });
 
 const deleteConvZonesSchema = z.object({
-  czone_id: z.number().int().nonnegative()
+  czone_id: z.coerce.number().nonnegative()
 });
 
 app.delete('/convenience-zones/:czone_id', async (req, res) => {
