@@ -1,8 +1,23 @@
-import express from 'express';
-import cors from 'cors';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { serve } from '@hono/node-server';
 import { PrismaClient } from '@prisma/client';
 import { GOOGLE_API_KEY } from './env.js';
 import { z } from 'zod';
+
+const app = new Hono();
+const prisma = new PrismaClient();
+
+app.use(
+  '*',
+  cors({
+    origin: '*',
+    allowMethods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    exposeHeaders: ['Set-Cookie'],
+    credentials: true
+  })
+);
 
 interface GeocodeComponent {
   long_name: string;
@@ -26,23 +41,8 @@ interface GeocodeResponse {
   status: string;
 }
 
-const app = express();
-const prisma = new PrismaClient();
-
-app.use(
-  cors({
-    origin: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Set-Cookie'],
-    credentials: true
-  })
-);
-
-app.use(express.json({ limit: '500mb' }));
-
-app.get('/', async (req, res) => {
-  res.json({
+app.get('/', async (c) => {
+  return c.json({
     message: 'Hello, World!'
   });
 });
@@ -51,15 +51,16 @@ const postLookupZipSchema = z.object({
   location: z.string().nonempty()
 });
 
-app.post('/lookup-zip', async (req, res) => {
-  const parse = postLookupZipSchema.safeParse(req.body);
+app.post('/lookup-zip', async (c) => {
+  const parse = postLookupZipSchema.safeParse(await c.req.json());
 
   if (!parse.success) {
-    res.status(400).json({
-      message: 'Please specify a location'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Please specify a location'
+      },
+      400
+    );
   }
 
   const { location } = parse.data;
@@ -79,9 +80,9 @@ app.post('/lookup-zip', async (req, res) => {
     (result) => result.address_components
   );
   if (!resultWithComponents || !resultWithComponents.address_components) {
-    res.status(400).json({ error: 'No address components found' });
-    return;
+    return c.json({ error: 'No address components found' }, 400);
   }
+
   const components = resultWithComponents.address_components;
 
   // Look for a postal code within the components.
@@ -93,8 +94,7 @@ app.post('/lookup-zip', async (req, res) => {
     // If postal code isn't found, attempt reverse geocoding.
     const resultWithGeometry = json.results.find((result) => result.geometry);
     if (!resultWithGeometry || !resultWithGeometry.geometry) {
-      res.status(400).json({ error: 'No geometry found for reverse lookup' });
-      return;
+      return c.json({ error: 'No geometry found for reverse lookup' }, 400);
     }
     // Rename inner variable to avoid shadowing the outer "location"
     const geoLocation = resultWithGeometry.geometry.location;
@@ -124,20 +124,21 @@ app.post('/lookup-zip', async (req, res) => {
       }
     }
 
-    res.json(res_json);
+    return c.json(res_json);
   } else {
     // If postal code is found, look for the city.
     const cityComponent = components.find((component) =>
       component.types.includes('locality')
     );
-    res.json({
+
+    return c.json({
       zip_code: zipCodeComponent.long_name,
       city: cityComponent ? cityComponent.long_name : ''
     });
   }
 });
 
-app.get('/convenience-zones', async (req, res) => {
+app.get('/convenience-zones', async (c) => {
   const zones = await prisma.convenienceZone.findMany({
     include: {
       papdata: {
@@ -147,7 +148,8 @@ app.get('/convenience-zones', async (req, res) => {
       }
     }
   });
-  res.json({
+
+  return c.json({
     data: zones.map((zone) => ({
       ...zone,
       papdata: undefined,
@@ -165,15 +167,16 @@ const postConvZonesSchema = z.object({
   size: z.number().nonnegative()
 });
 
-app.post('/convenience-zones', async (req, res) => {
-  const parse = postConvZonesSchema.safeParse(req.body);
+app.post('/convenience-zones', async (c) => {
+  const parse = postConvZonesSchema.safeParse(await c.req.parseBody());
 
   if (!parse.success) {
-    res.status(400).json({
-      message: 'Invalid schema'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Invalid schema'
+      },
+      400
+    );
   }
 
   const { name, latitude, longitude, cbg_list, start_date, size } = parse.data;
@@ -189,7 +192,7 @@ app.post('/convenience-zones', async (req, res) => {
     }
   });
 
-  res.json({
+  return c.json({
     data: zone
   });
 });
@@ -198,15 +201,16 @@ const deleteConvZonesSchema = z.object({
   czone_id: z.coerce.number().nonnegative()
 });
 
-app.delete('/convenience-zones/:czone_id', async (req, res) => {
-  const parse = deleteConvZonesSchema.safeParse(req.params);
+app.delete('/convenience-zones/:czone_id', async (c) => {
+  const parse = deleteConvZonesSchema.safeParse(c.req.param());
 
   if (!parse.success) {
-    res.status(400).json({
-      message: 'Please specify a czone_id'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Please specify a czone_id'
+      },
+      400
+    );
   }
 
   try {
@@ -216,13 +220,16 @@ app.delete('/convenience-zones/:czone_id', async (req, res) => {
       }
     });
 
-    res.json({
+    return c.json({
       data: zone
     });
   } catch (error) {
-    res.status(404).json({
-      message: error
-    });
+    return c.json(
+      {
+        message: error
+      },
+      400
+    );
   }
 });
 
@@ -232,15 +239,16 @@ const postPatternsSchema = z.object({
   patterns: z.object({}).passthrough()
 });
 
-app.post('/patterns', async (req, res) => {
-  const parse = postPatternsSchema.safeParse(req.body);
+app.post('/patterns', async (c) => {
+  const parse = postPatternsSchema.safeParse(await c.req.parseBody());
 
   if (!parse.success) {
-    res.status(400).json({
-      message: 'Please send a full JSON body'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Please send a full JSON body'
+      },
+      400
+    );
   }
 
   const { czone_id, patterns, papdata } = parse.data;
@@ -259,7 +267,7 @@ app.post('/patterns', async (req, res) => {
     }
   });
 
-  res.json({
+  return c.json({
     data: {
       papdata: {
         id: papdata_obj.id
@@ -275,15 +283,16 @@ const getPatternsSchema = z.object({
   czone_id: z.coerce.number().nonnegative()
 });
 
-app.get('/patterns/:czone_id', async (req, res) => {
-  const parse = getPatternsSchema.safeParse(req.params);
+app.get('/patterns/:czone_id', async (c) => {
+  const parse = getPatternsSchema.safeParse(c.req.param());
 
   if (!parse.success) {
-    res.status(400).json({
-      message: 'Please specify a convenience zone ID #'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Please specify a convenience zone ID #'
+      },
+      400
+    );
   }
 
   const czone_id = parse.data.czone_id;
@@ -301,14 +310,15 @@ app.get('/patterns/:czone_id', async (req, res) => {
   });
 
   if (!papdata_obj || !patterns_obj) {
-    res.status(404).json({
-      message: 'Could not find patterns or papdata'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Could not find patterns or papdata'
+      },
+      404
+    );
   }
 
-  res.json({
+  return c.json({
     data: {
       papdata: JSON.parse(papdata_obj.papdata),
       patterns: JSON.parse(patterns_obj.patterns)
@@ -321,15 +331,16 @@ const postSimDataSchema = z.object({
   simdata: z.string().nonempty()
 });
 
-app.post('/simdata', async (req, res) => {
-  const parse = postSimDataSchema.safeParse(req.body);
+app.post('/simdata', async (c) => {
+  const parse = postSimDataSchema.safeParse(await c.req.parseBody());
 
   if (!parse.success) {
-    res.status(400).json({
-      message: 'Please specify a convenience zone ID # and associated simdata'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Please specify a convenience zone ID # and associated simdata'
+      },
+      400
+    );
   }
 
   const czone_id = parse.data.czone_id;
@@ -347,7 +358,7 @@ app.post('/simdata', async (req, res) => {
     }
   });
 
-  res.json({
+  return c.json({
     message: `Successfully added simulator cache data to zone #${czone_id}`
   });
 });
@@ -356,15 +367,16 @@ const getSimDataSchema = z.object({
   czone_id: z.coerce.number().nonnegative()
 });
 
-app.get('/simdata/:czone_id', async (req, res) => {
-  const parse = getSimDataSchema.safeParse(req.params);
+app.get('/simdata/:czone_id', async (c) => {
+  const parse = getSimDataSchema.safeParse(c.req.param());
 
   if (!parse.success) {
-    res.status(400).json({
-      message: 'Please specify a convenience zone ID #'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Please specify a convenience zone ID #'
+      },
+      400
+    );
   }
 
   const czone_id = parse.data.czone_id;
@@ -374,19 +386,19 @@ app.get('/simdata/:czone_id', async (req, res) => {
   });
 
   if (!simdata) {
-    res.status(404).json({
-      message: 'Could not find associated simdata'
-    });
-
-    return;
+    return c.json(
+      {
+        message: 'Could not find associated simdata'
+      },
+      404
+    );
   }
 
-  res.json({
+  return c.json({
     data: simdata.simdata
   });
 });
 
 const port = 1890;
-app.listen(port, () => {
-  console.log(`Server is listening on port ${port}`);
-});
+serve({ fetch: app.fetch, port });
+console.log(`Server is listening on port ${port}`);
