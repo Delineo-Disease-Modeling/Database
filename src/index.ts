@@ -7,6 +7,7 @@ import { GOOGLE_API_KEY } from './env.js';
 import { zValidator } from '@hono/zod-validator';
 import {
   deleteConvZonesSchema,
+  getPatternsQuerySchema,
   getPatternsSchema,
   getSimDataSchema,
   postConvZonesSchema,
@@ -14,6 +15,7 @@ import {
   postPatternsSchema,
   postSimDataSchema
 } from './schemas.js';
+import { streamText } from 'hono/streaming';
 
 const app = new Hono();
 const prisma = new PrismaClient();
@@ -231,8 +233,10 @@ app.post('/patterns', zValidator('json', postPatternsSchema), async (c) => {
 app.get(
   '/patterns/:czone_id',
   zValidator('param', getPatternsSchema),
+  zValidator('query', getPatternsQuerySchema),
   async (c) => {
     const { czone_id } = c.req.valid('param');
+    const { stream } = c.req.valid('query');
 
     const papdata_obj = await prisma.paPData.findUnique({
       where: {
@@ -255,6 +259,20 @@ app.get(
       );
     }
 
+    if (stream) {
+      return streamText(c, async (stream) => {
+        await stream.write(papdata_obj.papdata);
+
+        const patterns = JSON.parse(patterns_obj.patterns);
+        const timestamps = Object.keys(patterns).sort((a, b) => +a - +b);
+
+        for (const curtime of timestamps) {
+          await stream.write(JSON.stringify(patterns[curtime]));
+        }
+      });
+    }
+
+    // Not streaming? return data as normal
     return c.json({
       data: {
         papdata: JSON.parse(papdata_obj.papdata),

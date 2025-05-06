@@ -27,6 +27,10 @@ export const getPatternsSchema = z.object({
   czone_id: z.coerce.number().nonnegative()
 });
 
+export const getPatternsQuerySchema = z.object({
+  stream: z.coerce.boolean().optional()
+});
+
 export const postSimDataSchema = z.object({
   czone_id: z.coerce.number().nonnegative(),
   simdata: z.string().nonempty()
