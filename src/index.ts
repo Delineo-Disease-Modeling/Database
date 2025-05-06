@@ -4,8 +4,16 @@ import { serve } from '@hono/node-server';
 import { trimTrailingSlash } from 'hono/trailing-slash';
 import { PrismaClient } from '@prisma/client';
 import { GOOGLE_API_KEY } from './env.js';
-import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import {
+  deleteConvZonesSchema,
+  getPatternsSchema,
+  getSimDataSchema,
+  postConvZonesSchema,
+  postLookupZipSchema,
+  postPatternsSchema,
+  postSimDataSchema
+} from './schemas.js';
 
 const app = new Hono();
 const prisma = new PrismaClient();
@@ -23,25 +31,19 @@ app.use(
   })
 );
 
-interface GeocodeComponent {
-  long_name: string;
-  types: string[];
-}
-
-interface Geometry {
-  location: {
-    lat: number;
-    lng: number;
-  };
-}
-
-interface GeocodeResult {
-  address_components?: GeocodeComponent[];
-  geometry?: Geometry;
-}
-
 interface GeocodeResponse {
-  results: GeocodeResult[];
+  results: {
+    address_components?: {
+      long_name: string;
+      types: string[];
+    }[];
+    geometry?: {
+      location: {
+        lat: number;
+        lng: number;
+      };
+    };
+  }[];
   status: string;
 }
 
@@ -49,10 +51,6 @@ app.get('/', async (c) => {
   return c.json({
     message: 'Hello, World!'
   });
-});
-
-const postLookupZipSchema = z.object({
-  location: z.string().nonempty()
 });
 
 app.post('/lookup-zip', zValidator('json', postLookupZipSchema), async (c) => {
@@ -151,15 +149,6 @@ app.get('/convenience-zones', async (c) => {
   });
 });
 
-const postConvZonesSchema = z.object({
-  name: z.string().nonempty(),
-  latitude: z.number(),
-  longitude: z.number(),
-  cbg_list: z.array(z.string()),
-  start_date: z.string().datetime(),
-  size: z.number().nonnegative()
-});
-
 app.post(
   '/convenience-zones',
   zValidator('json', postConvZonesSchema),
@@ -183,10 +172,6 @@ app.post(
     });
   }
 );
-
-const deleteConvZonesSchema = z.object({
-  czone_id: z.coerce.number().nonnegative()
-});
 
 app.delete(
   '/convenience-zones/:czone_id',
@@ -213,12 +198,6 @@ app.delete(
     }
   }
 );
-
-const postPatternsSchema = z.object({
-  czone_id: z.number().nonnegative(),
-  papdata: z.object({}).passthrough(),
-  patterns: z.object({}).passthrough()
-});
 
 app.post('/patterns', zValidator('json', postPatternsSchema), async (c) => {
   const { czone_id, patterns, papdata } = c.req.valid('json');
@@ -247,10 +226,6 @@ app.post('/patterns', zValidator('json', postPatternsSchema), async (c) => {
       }
     }
   });
-});
-
-const getPatternsSchema = z.object({
-  czone_id: z.coerce.number().nonnegative()
 });
 
 app.get(
@@ -289,11 +264,6 @@ app.get(
   }
 );
 
-const postSimDataSchema = z.object({
-  czone_id: z.coerce.number().nonnegative(),
-  simdata: z.string().nonempty()
-});
-
 app.post('/simdata', zValidator('json', postSimDataSchema), async (c) => {
   const { simdata, czone_id } = c.req.valid('json');
 
@@ -313,10 +283,6 @@ app.post('/simdata', zValidator('json', postSimDataSchema), async (c) => {
   return c.json({
     message: `Successfully added simulator cache data to zone #${czone_id}`
   });
-});
-
-const getSimDataSchema = z.object({
-  czone_id: z.coerce.number().nonnegative()
 });
 
 app.get(
