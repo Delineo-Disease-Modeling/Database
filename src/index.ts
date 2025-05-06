@@ -1,12 +1,16 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
+import { trimTrailingSlash } from 'hono/trailing-slash';
 import { PrismaClient } from '@prisma/client';
 import { GOOGLE_API_KEY } from './env.js';
 import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
 
 const app = new Hono();
 const prisma = new PrismaClient();
+
+app.use('*', trimTrailingSlash());
 
 app.use(
   '*',
@@ -51,19 +55,8 @@ const postLookupZipSchema = z.object({
   location: z.string().nonempty()
 });
 
-app.post('/lookup-zip', async (c) => {
-  const parse = postLookupZipSchema.safeParse(await c.req.json());
-
-  if (!parse.success) {
-    return c.json(
-      {
-        message: 'Please specify a location'
-      },
-      400
-    );
-  }
-
-  const { location } = parse.data;
+app.post('/lookup-zip', zValidator('json', postLookupZipSchema), async (c) => {
+  const { location } = c.req.valid('json');
 
   const api_uri = 'https://maps.googleapis.com/maps/api/geocode/json';
 
@@ -167,71 +160,59 @@ const postConvZonesSchema = z.object({
   size: z.number().nonnegative()
 });
 
-app.post('/convenience-zones', async (c) => {
-  const parse = postConvZonesSchema.safeParse(await c.req.parseBody());
+app.post(
+  '/convenience-zones',
+  zValidator('json', postConvZonesSchema),
+  async (c) => {
+    const { name, latitude, longitude, cbg_list, start_date, size } =
+      c.req.valid('json');
 
-  if (!parse.success) {
-    return c.json(
-      {
-        message: 'Invalid schema'
-      },
-      400
-    );
-  }
-
-  const { name, latitude, longitude, cbg_list, start_date, size } = parse.data;
-
-  const zone = await prisma.convenienceZone.create({
-    data: {
-      name,
-      latitude,
-      longitude,
-      cbg_list,
-      start_date,
-      size
-    }
-  });
-
-  return c.json({
-    data: zone
-  });
-});
-
-const deleteConvZonesSchema = z.object({
-  czone_id: z.coerce.number().nonnegative()
-});
-
-app.delete('/convenience-zones/:czone_id', async (c) => {
-  const parse = deleteConvZonesSchema.safeParse(c.req.param());
-
-  if (!parse.success) {
-    return c.json(
-      {
-        message: 'Please specify a czone_id'
-      },
-      400
-    );
-  }
-
-  try {
-    const zone = await prisma.convenienceZone.delete({
-      where: {
-        id: parse.data.czone_id
+    const zone = await prisma.convenienceZone.create({
+      data: {
+        name,
+        latitude,
+        longitude,
+        cbg_list,
+        start_date,
+        size
       }
     });
 
     return c.json({
       data: zone
     });
-  } catch (error) {
-    return c.json(
-      {
-        message: error
-      },
-      400
-    );
   }
+);
+
+const deleteConvZonesSchema = z.object({
+  czone_id: z.coerce.number().nonnegative()
 });
+
+app.delete(
+  '/convenience-zones/:czone_id',
+  zValidator('param', deleteConvZonesSchema),
+  async (c) => {
+    try {
+      const { czone_id } = c.req.valid('param');
+      const zone = await prisma.convenienceZone.delete({
+        where: {
+          id: czone_id
+        }
+      });
+
+      return c.json({
+        data: zone
+      });
+    } catch (error) {
+      return c.json(
+        {
+          message: error
+        },
+        400
+      );
+    }
+  }
+);
 
 const postPatternsSchema = z.object({
   czone_id: z.number().nonnegative(),
@@ -239,19 +220,8 @@ const postPatternsSchema = z.object({
   patterns: z.object({}).passthrough()
 });
 
-app.post('/patterns', async (c) => {
-  const parse = postPatternsSchema.safeParse(await c.req.parseBody());
-
-  if (!parse.success) {
-    return c.json(
-      {
-        message: 'Please send a full JSON body'
-      },
-      400
-    );
-  }
-
-  const { czone_id, patterns, papdata } = parse.data;
+app.post('/patterns', zValidator('json', postPatternsSchema), async (c) => {
+  const { czone_id, patterns, papdata } = c.req.valid('json');
 
   const papdata_obj = await prisma.paPData.create({
     data: {
@@ -283,78 +253,60 @@ const getPatternsSchema = z.object({
   czone_id: z.coerce.number().nonnegative()
 });
 
-app.get('/patterns/:czone_id', async (c) => {
-  const parse = getPatternsSchema.safeParse(c.req.param());
+app.get(
+  '/patterns/:czone_id',
+  zValidator('param', getPatternsSchema),
+  async (c) => {
+    const { czone_id } = c.req.valid('param');
 
-  if (!parse.success) {
-    return c.json(
-      {
-        message: 'Please specify a convenience zone ID #'
-      },
-      400
-    );
+    const papdata_obj = await prisma.paPData.findUnique({
+      where: {
+        czone_id: czone_id
+      }
+    });
+
+    const patterns_obj = await prisma.movementPattern.findUnique({
+      where: {
+        czone_id: czone_id
+      }
+    });
+
+    if (!papdata_obj || !patterns_obj) {
+      return c.json(
+        {
+          message: 'Could not find patterns or papdata'
+        },
+        404
+      );
+    }
+
+    return c.json({
+      data: {
+        papdata: JSON.parse(papdata_obj.papdata),
+        patterns: JSON.parse(patterns_obj.patterns)
+      }
+    });
   }
-
-  const czone_id = parse.data.czone_id;
-
-  const papdata_obj = await prisma.paPData.findUnique({
-    where: {
-      czone_id: czone_id
-    }
-  });
-
-  const patterns_obj = await prisma.movementPattern.findUnique({
-    where: {
-      czone_id: czone_id
-    }
-  });
-
-  if (!papdata_obj || !patterns_obj) {
-    return c.json(
-      {
-        message: 'Could not find patterns or papdata'
-      },
-      404
-    );
-  }
-
-  return c.json({
-    data: {
-      papdata: JSON.parse(papdata_obj.papdata),
-      patterns: JSON.parse(patterns_obj.patterns)
-    }
-  });
-});
+);
 
 const postSimDataSchema = z.object({
   czone_id: z.coerce.number().nonnegative(),
   simdata: z.string().nonempty()
 });
 
-app.post('/simdata', async (c) => {
-  const parse = postSimDataSchema.safeParse(await c.req.parseBody());
-
-  if (!parse.success) {
-    return c.json(
-      {
-        message: 'Please specify a convenience zone ID # and associated simdata'
-      },
-      400
-    );
-  }
-
-  const czone_id = parse.data.czone_id;
+app.post('/simdata', zValidator('json', postSimDataSchema), async (c) => {
+  const { simdata, czone_id } = c.req.valid('json');
 
   await prisma.simData.upsert({
     where: {
       czone_id: czone_id
     },
     update: {
-      simdata: parse.data.simdata
+      simdata: simdata
     },
     create: {
       czone_id: czone_id,
-      simdata: parse.data.simdata
+      simdata: simdata
     }
   });
 
@@ -367,37 +319,30 @@ const getSimDataSchema = z.object({
   czone_id: z.coerce.number().nonnegative()
 });
 
-app.get('/simdata/:czone_id', async (c) => {
-  const parse = getSimDataSchema.safeParse(c.req.param());
+app.get(
+  '/simdata/:czone_id',
+  zValidator('param', getSimDataSchema),
+  async (c) => {
+    const { czone_id } = c.req.valid('param');
 
-  if (!parse.success) {
-    return c.json(
-      {
-        message: 'Please specify a convenience zone ID #'
-      },
-      400
-    );
+    const simdata = await prisma.simData.findUnique({
+      where: { czone_id: czone_id }
+    });
+
+    if (!simdata) {
+      return c.json(
+        {
+          message: 'Could not find associated simdata'
+        },
+        404
+      );
+    }
+
+    return c.json({
+      data: simdata.simdata
+    });
   }
-
-  const czone_id = parse.data.czone_id;
-
-  const simdata = await prisma.simData.findUnique({
-    where: { czone_id: czone_id }
-  });
-
-  if (!simdata) {
-    return c.json(
-      {
-        message: 'Could not find associated simdata'
-      },
-      404
-    );
-  }
-
-  return c.json({
-    data: simdata.simdata
-  });
-});
+);
 
 const port = 1890;
 serve({ fetch: app.fetch, port });
