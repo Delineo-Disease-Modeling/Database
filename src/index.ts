@@ -33,6 +33,15 @@ app.use(
   })
 );
 
+app.onError((err, c) => {
+  return c.json(
+    {
+      message: 'An unknown error occurred'
+    },
+    500
+  );
+});
+
 interface GeocodeResponse {
   results: {
     address_components?: {
