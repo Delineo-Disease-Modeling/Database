@@ -270,13 +270,13 @@ app.get(
 
     if (stream) {
       return streamText(c, async (stream) => {
-        await stream.write(papdata_obj.papdata);
+        await stream.write(`${papdata_obj.papdata}\n`);
 
         const patterns = JSON.parse(patterns_obj.patterns);
         const timestamps = Object.keys(patterns).sort((a, b) => +a - +b);
 
         for (const curtime of timestamps) {
-          await stream.write(JSON.stringify(patterns[curtime]));
+          await stream.write(`${JSON.stringify(patterns[curtime])}\n`);
         }
       });
     }
